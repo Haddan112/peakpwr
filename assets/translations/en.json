@@ -75,6 +75,12 @@
   "exercise_wrist_curl": "Wrist Curl",
   "exercise_reverse_wrist_curl": "Reverse Wrist Curl",
 
+  "exercise_incline_db_curl": "Incline DB Curl",
+  "exercise_bench_press": "Bench Press",
+  "exercise_close_grip_bench_press": "Close Grip Bench Press",
+  "exercise_overhead_triceps_ext": "Overhead Triceps Ext",
+  "exercise_seated_row": "Seated Row",
+
   "gym_log": "PeakPwr",
   "mohamed_haddan": "Mohamed Haddan",
   "about_technologies": "• Flutter\n• Dart\n• Hive Database\n• Google Fonts"

@@ -42,12 +42,12 @@ class _DayWorkoutScreenState extends State<DayWorkoutScreen> {
   bool _isResting = false;
 
   static const Map<String, List<String>> _eligibleExercises = {
-    'Monday': ['Lateral raise', 'Barbell curl', 'Shrugs'],
-    'Thursday': ['Shoulder press', 'Face pull', 'Hammer curl', 'Triceps pushdown'],
-    'Saturday': [
-      'Romanian Deadlift', 'Leg Curl', 'Standing Calf Raises',
-      'Seated Calf Raises', 'Weighted Crunch', 'Wrist Curl'
-    ],
+    'Monday': ['Face Pull', 'Lateral Raise', 'Bench Press', 'Close Grip Bench Press'],
+    'Thursday': ['Hammer Curl', 'Overhead Triceps Ext', 'Lateral Raise', 'Face Pull', 'Shoulder Press'],
+'Saturday': [
+    'Romanian Deadlift', 'Leg Curl', 'Standing Calf Raises',
+    'Seated Calf Raises', 'Weighted Crunch', 'Wrist Curl'
+  ],
   };
 
   @override

@@ -75,6 +75,12 @@
   "exercise_wrist_curl": "كرل المعصم",
   "exercise_reverse_wrist_curl": "كرل المعصم العكسي",
 
+  "exercise_incline_db_curl": "كرل الدمبل المائل",
+  "exercise_bench_press": "ضغط المقعد",
+  "exercise_close_grip_bench_press": "ضغط المقعد بقبضة ضيقة",
+  "exercise_overhead_triceps_ext": "تمديد الترايسبس خلف الرأس",
+  "exercise_seated_row": "تجديف جالس",
+
   "gym_log": "PeakPwr",
   "mohamed_haddan": "محمد حدان",
   "about_technologies": "• فلاتر\n• دارت\n• قاعدة بيانات هايف\n• خطوط جوجل"

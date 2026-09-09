@@ -26,6 +26,12 @@ String translateExerciseName(String englishName) {
     'Weighted Crunch': 'exercise_weighted_crunch',
     'Wrist Curl': 'exercise_wrist_curl',
     'Reverse Wrist Curl': 'exercise_reverse_wrist_curl',
+    'Incline DB Curl': 'exercise_incline_db_curl',
+    'Bench Press': 'exercise_bench_press',
+    'Close Grip Bench Press': 'exercise_close_grip_bench_press',
+    'Overhead Triceps Ext': 'exercise_overhead_triceps_ext',
+    'Seated Row': 'exercise_seated_row',
+
   };
   final key = map[englishName];
   return key != null ? key.tr() : englishName;
