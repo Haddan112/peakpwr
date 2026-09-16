@@ -41,13 +41,16 @@ class _DayWorkoutScreenState extends State<DayWorkoutScreen> {
   int _totalRestSeconds = 0;
   bool _isResting = false;
 
+  // مسودات الأيام لحفظ البيانات مؤقتًا
+  static final Map<String, Map<String, dynamic>> _drafts = {};
+
   static const Map<String, List<String>> _eligibleExercises = {
     'Monday': ['Face Pull', 'Lateral Raise', 'Bench Press', 'Close Grip Bench Press'],
     'Thursday': ['Hammer Curl', 'Overhead Triceps Ext', 'Lateral Raise', 'Face Pull', 'Shoulder Press'],
-'Saturday': [
-    'Romanian Deadlift', 'Leg Curl', 'Standing Calf Raises',
-    'Seated Calf Raises', 'Weighted Crunch', 'Wrist Curl'
-  ],
+    'Saturday': [
+      'Romanian Deadlift', 'Leg Curl', 'Standing Calf Raises',
+      'Seated Calf Raises', 'Weighted Crunch', 'Wrist Curl'
+    ],
   };
 
   @override
@@ -56,7 +59,7 @@ class _DayWorkoutScreenState extends State<DayWorkoutScreen> {
     final exercises = widget.dayPlan.exercises;
     _weightControllers = List.generate(
       exercises.length,
-      (_) => TextEditingController(text: exercises[_].defaultWeight.toString()),
+      (_) => TextEditingController(),
     );
     _repControllers = List.generate(
       exercises.length,
@@ -67,6 +70,8 @@ class _DayWorkoutScreenState extends State<DayWorkoutScreen> {
       (i) => List.filled(exercises[i].sets, false),
     );
     _skipped = List.filled(exercises.length, false);
+
+    _loadDraft();
 
     _scrollController.addListener(() {
       if (!_scrollController.hasClients) return;
@@ -81,10 +86,71 @@ class _DayWorkoutScreenState extends State<DayWorkoutScreen> {
     });
   }
 
+  void _saveDraft() {
+    _drafts[widget.dayPlan.day] = {
+      'weights': _weightControllers.map((c) => c.text).toList(),
+      'reps': _repControllers
+          .map((list) => list.map((c) => c.text).toList())
+          .toList(),
+      'failures':
+          _failureSwitches.map((list) => List<bool>.from(list)).toList(),
+      'skipped': List<bool>.from(_skipped),
+      'randomFailureEnabled': _randomFailureEnabled,
+      'randomFailureIndices': List<int>.from(_randomFailureIndices),
+    };
+  }
+
+  void _loadDraft() {
+    final exercises = widget.dayPlan.exercises;
+    final draft = _drafts[widget.dayPlan.day];
+
+    if (draft == null) {
+      // لا توجد مسودة: ضع الأوزان الافتراضية
+      for (int i = 0; i < exercises.length; i++) {
+        _weightControllers[i].text = exercises[i].defaultWeight.toString();
+      }
+      return;
+    }
+
+    try {
+      final weights = draft['weights'] as List;
+      for (int i = 0; i < weights.length && i < _weightControllers.length; i++) {
+        _weightControllers[i].text = weights[i] as String;
+      }
+      final reps = draft['reps'] as List;
+      for (int i = 0; i < reps.length && i < _repControllers.length; i++) {
+        final inner = reps[i] as List;
+        for (int j = 0; j < inner.length && j < _repControllers[i].length; j++) {
+          _repControllers[i][j].text = inner[j] as String;
+        }
+      }
+      final failures = draft['failures'] as List;
+      for (int i = 0; i < failures.length && i < _failureSwitches.length; i++) {
+        final inner = failures[i] as List;
+        for (int j = 0; j < inner.length && j < _failureSwitches[i].length; j++) {
+          _failureSwitches[i][j] = inner[j] as bool;
+        }
+      }
+      final skipped = draft['skipped'] as List;
+      for (int i = 0; i < skipped.length && i < _skipped.length; i++) {
+        _skipped[i] = skipped[i] as bool;
+      }
+      _randomFailureEnabled = draft['randomFailureEnabled'] as bool? ?? false;
+      _randomFailureIndices =
+          List<int>.from(draft['randomFailureIndices'] as List? ?? []);
+    } catch (e) {
+      // في حالة خطأ، نضع الأوزان الافتراضية
+      for (int i = 0; i < exercises.length; i++) {
+        _weightControllers[i].text = exercises[i].defaultWeight.toString();
+      }
+    }
+  }
+
   void _skipExercise(int index) {
     setState(() {
       _skipped[index] = true;
-      _weightControllers[index].text = widget.dayPlan.exercises[index].defaultWeight.toString();
+      _weightControllers[index].text =
+          widget.dayPlan.exercises[index].defaultWeight.toString();
       for (int j = 0; j < widget.dayPlan.exercises[index].sets; j++) {
         _repControllers[index][j].clear();
         _failureSwitches[index][j] = false;
@@ -119,31 +185,30 @@ class _DayWorkoutScreenState extends State<DayWorkoutScreen> {
     });
   }
 
-void _startRest(int seconds) {
-  _stopRest();
-  setState(() {
-    _isResting = true;
-    _restRemaining = seconds;
-    _totalRestSeconds = seconds;
-  });
+  void _startRest(int seconds) {
+    _stopRest();
+    setState(() {
+      _isResting = true;
+      _restRemaining = seconds;
+      _totalRestSeconds = seconds;
+    });
 
-  _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-    if (_restRemaining <= 1) {
-      timer.cancel();
-      setState(() {
-        _isResting = false;
-      });
-      // تشغيل الصوت والاهتزاز
-      final player = AudioPlayer();
-      player.play(AssetSource('sounds/beep.mp3'));
-      HapticFeedback.heavyImpact();
-    } else {
-      setState(() {
-        _restRemaining--;
-      });
-    }
-  });
-}
+    _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_restRemaining <= 1) {
+        timer.cancel();
+        setState(() {
+          _isResting = false;
+        });
+        final player = AudioPlayer();
+        player.play(AssetSource('sounds/beep.mp3'));
+        HapticFeedback.heavyImpact();
+      } else {
+        setState(() {
+          _restRemaining--;
+        });
+      }
+    });
+  }
 
   void _stopRest() {
     _restTimer?.cancel();
@@ -164,7 +229,8 @@ void _startRest(int seconds) {
       if (_skipped[i]) continue;
 
       final exercise = exercises[i];
-      final weight = double.tryParse(_weightControllers[i].text) ?? exercise.defaultWeight;
+      final weight =
+          double.tryParse(_weightControllers[i].text) ?? exercise.defaultWeight;
 
       final List<int> reps = [];
       for (int setIndex = 0; setIndex < exercise.sets; setIndex++) {
@@ -201,6 +267,9 @@ void _startRest(int seconds) {
       );
       return;
     }
+
+    // مسح المسودة بعد الحفظ الناجح
+    _drafts.remove(widget.dayPlan.day);
 
     setState(() {
       for (int i = 0; i < exercises.length; i++) {
@@ -286,11 +355,17 @@ void _startRest(int seconds) {
 
   @override
   void dispose() {
+    // حفظ المسودة قبل الخروج
+    _saveDraft();
     _restTimer?.cancel();
     _scrollController.dispose();
-    for (var c in _weightControllers) { c.dispose(); }
+    for (var c in _weightControllers) {
+      c.dispose();
+    }
     for (var list in _repControllers) {
-      for (var c in list) { c.dispose(); }
+      for (var c in list) {
+        c.dispose();
+      }
     }
     super.dispose();
   }
@@ -330,8 +405,8 @@ void _startRest(int seconds) {
   }
 
   Color _getRestColor(double fraction) {
-    if (fraction > 0.8) return const Color(0xFF00E676); // أخضر فاتح
-    if (fraction > 0.6) return const Color(0xFF00B248); // أخضر غامق
+    if (fraction > 0.8) return const Color(0xFF00E676);
+    if (fraction > 0.6) return const Color(0xFF00B248);
     if (fraction > 0.4) return Colors.yellow;
     if (fraction > 0.2) return Colors.orange;
     return Colors.red;
@@ -355,7 +430,8 @@ void _startRest(int seconds) {
         actions: [
           Row(
             children: [
-              Text('failure_label'.tr(), style: const TextStyle(color: Colors.white70, fontSize: 12)),
+              Text('failure_label'.tr(),
+                  style: const TextStyle(color: Colors.white70, fontSize: 12)),
               Checkbox(
                 value: _randomFailureEnabled,
                 onChanged: (val) => _toggleRandomFailure(val ?? false),
@@ -385,13 +461,15 @@ void _startRest(int seconds) {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        'daily_progress'.tr(),
-                        style: GoogleFonts.inter(fontSize: 12, color: Colors.grey.shade400),
-                      ),
+                      Text('daily_progress'.tr(),
+                          style: GoogleFonts.inter(
+                              fontSize: 12, color: Colors.grey.shade400)),
                       Text(
                         '${(progress * 100).toInt()}%',
-                        style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF00E676)),
+                        style: GoogleFonts.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF00E676)),
                       ),
                     ],
                   ),
@@ -404,29 +482,35 @@ void _startRest(int seconds) {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
                     color: const Color(0xFF00B248).withOpacity(0.2),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF00E676).withOpacity(0.5)),
+                    border: Border.all(
+                        color: const Color(0xFF00E676).withOpacity(0.5)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.timer, color: Color(0xFF00E676), size: 20),
+                      const Icon(Icons.timer,
+                          color: Color(0xFF00E676), size: 20),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'rest_time'.tr(namedArgs: {'seconds': '$_restRemaining'}),
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                              'rest_time'
+                                  .tr(namedArgs: {'seconds': '$_restRemaining'}),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600),
                             ),
                             const SizedBox(height: 4),
-                            // شريط التقدم مع تغيير اللون
                             LayoutBuilder(
                               builder: (context, constraints) {
-                                final fraction = _restRemaining / _totalRestSeconds;
+                                final fraction =
+                                    _restRemaining / _totalRestSeconds;
                                 final color = _getRestColor(fraction);
                                 return Stack(
                                   children: [
@@ -438,7 +522,8 @@ void _startRest(int seconds) {
                                       ),
                                     ),
                                     AnimatedContainer(
-                                      duration: const Duration(milliseconds: 300),
+                                      duration:
+                                          const Duration(milliseconds: 300),
                                       height: 6,
                                       width: constraints.maxWidth * fraction,
                                       decoration: BoxDecoration(
@@ -461,7 +546,8 @@ void _startRest(int seconds) {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white70, size: 18),
+                        icon: const Icon(Icons.close,
+                            color: Colors.white70, size: 18),
                         onPressed: _stopRest,
                       ),
                     ],
@@ -487,14 +573,22 @@ void _startRest(int seconds) {
                           Expanded(
                             child: Text(
                               translateExerciseName(exercise.name),
-                              style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                              style: GoogleFonts.inter(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white),
                             ),
                           ),
-                          if (exercise.videoPath != null && exercise.videoPath!.isNotEmpty)
+                          if (exercise.videoPath != null &&
+                              exercise.videoPath!.isNotEmpty)
                             Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text('tutorial'.tr(), style: TextStyle(fontSize: 10, color: Colors.grey.shade500, fontStyle: FontStyle.italic)),
+                                Text('tutorial'.tr(),
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.grey.shade500,
+                                        fontStyle: FontStyle.italic)),
                                 IconButton(
                                   icon: Container(
                                     decoration: BoxDecoration(
@@ -502,9 +596,12 @@ void _startRest(int seconds) {
                                       gradient: gradient,
                                     ),
                                     padding: const EdgeInsets.all(6),
-                                    child: const Icon(Icons.play_arrow, color: Colors.white, size: 18),
+                                    child: const Icon(Icons.play_arrow,
+                                        color: Colors.white, size: 18),
                                   ),
-                                  onPressed: () => _playVideo(exercise.videoPath!, translateExerciseName(exercise.name)),
+                                  onPressed: () => _playVideo(
+                                      exercise.videoPath!,
+                                      translateExerciseName(exercise.name)),
                                   padding: EdgeInsets.zero,
                                   constraints: const BoxConstraints(),
                                 ),
@@ -515,7 +612,9 @@ void _startRest(int seconds) {
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          Text('weight_kg'.tr(), style: GoogleFonts.inter(fontSize: 14, color: Colors.grey.shade400)),
+                          Text('weight_kg'.tr(),
+                              style: GoogleFonts.inter(
+                                  fontSize: 14, color: Colors.grey.shade400)),
                           SizedBox(
                             width: 90,
                             child: TextField(
@@ -531,11 +630,14 @@ void _startRest(int seconds) {
                       const SizedBox(height: 16),
                       Text(
                         (() {
-                          final reps = exercise.targetReps.where((r) => r > 0).toList();
+                          final reps =
+                              exercise.targetReps.where((r) => r > 0).toList();
                           final target = reps.isNotEmpty ? reps.first : 0;
-                          return 'reps_per_set_value'.tr(namedArgs: {'count': '$target'});
+                          return 'reps_per_set_value'
+                              .tr(namedArgs: {'count': '$target'});
                         })(),
-                        style: GoogleFonts.inter(fontSize: 14, color: Colors.grey.shade400),
+                        style: GoogleFonts.inter(
+                            fontSize: 14, color: Colors.grey.shade400),
                       ),
                       const SizedBox(height: 10),
                       Wrap(
@@ -559,11 +661,15 @@ void _startRest(int seconds) {
                                       ? null
                                       : (val) {
                                           setState(() {
-                                            _failureSwitches[index][setIndex] = val;
+                                            _failureSwitches[index][setIndex] =
+                                                val;
                                           });
                                         },
                                 ),
-                                Text('to_failure'.tr(), style: GoogleFonts.inter(fontSize: 13, color: Colors.grey.shade400)),
+                                Text('to_failure'.tr(),
+                                    style: GoogleFonts.inter(
+                                        fontSize: 13,
+                                        color: Colors.grey.shade400)),
                               ],
                             );
                           }
@@ -574,7 +680,9 @@ void _startRest(int seconds) {
                               keyboardType: TextInputType.number,
                               textAlign: TextAlign.center,
                               style: const TextStyle(color: Colors.white),
-                              decoration: InputDecoration(hintText: '${'set'.tr()} ${setIndex + 1}'),
+                              decoration: InputDecoration(
+                                  hintText:
+                                      '${'set'.tr()} ${setIndex + 1}'),
                               enabled: !isSkipped,
                               onChanged: (_) => setState(() {}),
                             ),
@@ -588,21 +696,29 @@ void _startRest(int seconds) {
                           children: [
                             OutlinedButton.icon(
                               onPressed: () => _startRest(exercise.restTime),
-                              icon: const Icon(Icons.timer, color: Colors.blueAccent),
-                              label: Text('rest'.tr(), style: GoogleFonts.inter(color: Colors.blueAccent)),
+                              icon: const Icon(Icons.timer,
+                                  color: Colors.blueAccent),
+                              label: Text('rest'.tr(),
+                                  style: GoogleFonts.inter(
+                                      color: Colors.blueAccent)),
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: Colors.blueAccent),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
                             const SizedBox(width: 8),
                             OutlinedButton.icon(
                               onPressed: () => _skipExercise(index),
-                              icon: const Icon(Icons.skip_next, color: Colors.orange),
-                              label: Text('skip'.tr(), style: GoogleFonts.inter(color: Colors.orange)),
+                              icon: const Icon(Icons.skip_next,
+                                  color: Colors.orange),
+                              label: Text('skip'.tr(),
+                                  style: GoogleFonts.inter(
+                                      color: Colors.orange)),
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: Colors.orange),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
                           ],
@@ -631,10 +747,13 @@ void _startRest(int seconds) {
                             top: 12,
                             right: 12,
                             child: PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, color: Colors.white54),
+                              icon: const Icon(Icons.more_vert,
+                                  color: Colors.white54),
                               onSelected: (value) => _cancelSkip(index),
                               itemBuilder: (context) => [
-                                PopupMenuItem(value: 'cancel', child: Text('cancel_skip'.tr())),
+                                PopupMenuItem(
+                                    value: 'cancel',
+                                    child: Text('cancel_skip'.tr())),
                               ],
                             ),
                           ),
@@ -653,7 +772,9 @@ void _startRest(int seconds) {
         width: _isNearEnd ? 200 : 65,
         height: 65,
         decoration: BoxDecoration(
-          borderRadius: _isNearEnd ? BorderRadius.circular(18) : BorderRadius.circular(32.5),
+          borderRadius: _isNearEnd
+              ? BorderRadius.circular(18)
+              : BorderRadius.circular(32.5),
           gradient: _isNearEnd ? gradient : null,
           color: _isNearEnd ? null : const Color(0xFF1E1E2E),
           boxShadow: _isNearEnd
@@ -681,15 +802,19 @@ void _startRest(int seconds) {
             ? ElevatedButton.icon(
                 onPressed: _saveAllExercises,
                 icon: const Icon(Icons.save, size: 22),
-                label: Text('save_all'.tr(), style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600)),
+                label: Text('save_all'.tr(),
+                    style: GoogleFonts.inter(
+                        fontSize: 18, fontWeight: FontWeight.w600)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.transparent,
                   shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18)),
                 ),
               )
             : IconButton(
-                icon: const Icon(Icons.save, color: Color(0xFF00E676), size: 30),
+                icon: const Icon(Icons.save,
+                    color: Color(0xFF00E676), size: 30),
                 onPressed: _saveAllExercises,
               ),
       ),
